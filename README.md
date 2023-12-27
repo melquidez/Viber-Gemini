@@ -52,7 +52,13 @@ The `generateMessage` method interacts with the GeminiAI API to generate respons
 public function generateMessage($msg)
 ```
 
-Replace the placeholders (`GEMINI_ENDPOINT` and `GEMINI_API_KEY`) with your GeminiAI API endpoint and API key.
+You can set the `GEMINI_API_KEY` environment variable with the API key you obtained from Google AI studio.
+
+Add the following line into your `.env` file.
+
+```
+GEMINI_API_KEY='YOUR_GEMINI_API_KEY'
+```
 
 ### 6. Configure Routes
 

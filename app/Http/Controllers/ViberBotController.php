@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use GeminiAPI\Laravel\Facades\Gemini;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ViberBotController extends Controller
 {
@@ -121,52 +124,34 @@ class ViberBotController extends Controller
 
     public function generateMessage($msg)
     {
-        $client = new Client();// make a new guzzle Clietn
-
-
-        // check if endpoint is for chat endpoint or text base endpoint
-        $prompt = [
-            "contents"              => [
-                [
-                    "parts"         => [
-                        [
-                            "text"  => $msg
-                        ]
-                    ]
-                ]
-            ]
-        ];
-
         try {
-            $response = $client->post(env('GEMINI_ENDPOINT'), [
-                'headers' => ['Content-Type' => 'application/json'],
-                'query' => ['key' => env('GEMINI_API_KEY')],
-                'json' => $prompt,
+            $response = Gemini::generateText($msg);
+
+            Log::channel('viber')->info('Gemini API Response', [
+                'prompt' => $msg,
+                'response' => $response,
             ]);
 
-            $responseData = json_decode($response->getBody(), true);
-            Log::channel('viber')->info('Gemini API Response: ' . json_encode($responseData));
-            return $responseData['candidates'][0]['content']['parts'][0]['text'];
-
-        } catch (\GuzzleHttp\Exception\RequestException $exception) {
+            return $response;
+        } catch (RequestException $exception) {
             $statusCode = $exception->getResponse()->getStatusCode();
-            $message = json_decode($exception->getResponse()->getBody(), true)['error']['message'] ?? $exception->getMessage();
+            $body = (string) $exception->getResponse()->getBody();
+            $message = json_decode($body, true)['error']['message'] ?? $exception->getMessage();
 
-            return "There is something wrong with your message.";
-        } catch (\Exception $exception) {
-            return "There is something wrong with your message.";
-            // return
+            Log::channel('viber')->error('Gemini API Request Exception', [
+                'prompt' => $msg,
+                'status_code' => $statusCode,
+                'error_message' => $message,
+                'exception' => $exception,
+            ]);
+        } catch (Throwable $throwable) {
+            Log::channel('viber')->error('Gemini API Error', [
+                'prompt' => $msg,
+                'error_message' => $throwable->getMessage(),
+                'exception' => $throwable,
+            ]);
         }
+
+        return "There is something wrong with your message.";
     }
-
-
-    // -H 'Content-Type: application/json' \
-    // -X POST \
-    // -d '{
-    //   "contents": [{
-    //     "parts":[{
-    //       "text": "Write a story about a magic backpack."}]}]}' 2> /dev/null
 }
-
-
-
